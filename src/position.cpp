@@ -1990,10 +1990,13 @@ bool Position::set(const HuffmanCodedPos& hcp, Thread* th) {
 
     // 手番
     turn_ = static_cast<Color>(bs.getBit());
+    std::cout << "turn: " << turn_ << std::endl;
 
     // 玉の位置
     Square sq0 = (Square)bs.getBits(7);
     Square sq1 = (Square)bs.getBits(7);
+    std::cout << "sq0: " << std::dec << sq0 << std::endl;
+    std::cout << "sq1: " << std::dec << sq1 << std::endl;
     setPiece(BKing, static_cast<Square>(sq0));
     setPiece(WKing, static_cast<Square>(sq1));
 
@@ -2008,6 +2011,7 @@ bool Position::set(const HuffmanCodedPos& hcp, Thread* th) {
                 const Piece pc = HuffmanCodedPos::boardCodeToPieceHash.value(hc.key);
                 if (pc != Empty)
                     setPiece(HuffmanCodedPos::boardCodeToPieceHash.value(hc.key), sq);
+                    std::cout << std::dec << sq << ":" << hc.key << std::endl;
                 break;
             }
         }
@@ -2021,6 +2025,7 @@ bool Position::set(const HuffmanCodedPos& hcp, Thread* th) {
             const Piece pc = HuffmanCodedPos::handCodeToPieceHash.value(hc.key);
             if (pc != PieceNone) {
                 hand_[pieceToColor(pc)].plusOne(pieceTypeToHandPiece(pieceToPieceType(pc)));
+                std::cout << std::dec << hc.key << std::endl;
                 break;
             }
         }

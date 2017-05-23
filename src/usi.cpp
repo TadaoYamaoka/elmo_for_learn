@@ -469,6 +469,16 @@ void make_teacher(std::istringstream& ssCmd) {
             for (auto& elem : hcpevec)
                 elem.gameResult = gameResult;
             std::unique_lock<Mutex> lock(omutex);
+            std::cout << "length: " << hcpevec.size() << std::endl;
+            std::cout << "size: " << sizeof(HuffmanCodedPosAndEval) << std::endl;
+            std::cout << "sum size: " << sizeof(HuffmanCodedPosAndEval) * hcpevec.size() << std::endl;
+            std::cout << "data: " << std::hex << (unsigned short)(hcpevec[0].hcp.data[0]) << (unsigned short)(hcpevec[0].hcp.data[1]) << std::endl;
+            Position po;
+            po.set(hcpevec[0].hcp, nullptr);
+            std::cout << "sfen: " << po.toSFEN() << std::endl;
+            std::cout << "eval: " << std::dec << hcpevec[0].eval << std::endl;
+            std::cout << "bestMove16: " << std::dec << hcpevec[0].bestMove16 << std::endl;
+            std::cout << "gameResult: " << std::dec << hcpevec[0].gameResult << std::endl;
             ofs.write(reinterpret_cast<char*>(hcpevec.data()), sizeof(HuffmanCodedPosAndEval) * hcpevec.size());
         }
     };
