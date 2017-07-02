@@ -548,24 +548,35 @@ void make_teacher2(std::istringstream& ssCmd) {
     teacherNodes = std::min(teacherNodes, entryNum);
     ifs.seekg(std::ios_base::beg);
 
-    Mutex imutex;
+    // 全て読む
+    HuffmanCodedPos *pHcp = new HuffmanCodedPos[teacherNodes];
+    ifs.read(reinterpret_cast<char*>(pHcp), sizeof(HuffmanCodedPos) * teacherNodes);
+    ifs.close();
+    std::atomic<int> hcp_index;
+    hcp_index = 0;
+
+    //Mutex imutex;
     Mutex omutex;
     std::ofstream ofs(outputFileName.c_str(), std::ios::binary);
     if (!ofs) {
         std::cerr << "Error: cannot open " << outputFileName << std::endl;
         exit(EXIT_FAILURE);
     }
-    auto func = [&omutex, &ofs, &imutex, &ifs/*, &inputFileDist*/, &teacherNodes](Position& pos, std::atomic<s64>& idx, const int threadID) {
+    auto func = [&omutex, &ofs/*, &imutex, &ifs, &inputFileDist*/, &teacherNodes, &hcp_index, &pHcp](Position& pos, std::atomic<s64>& idx, const int threadID) {
         std::mt19937 mt(std::chrono::system_clock::now().time_since_epoch().count() + threadID);
-        HuffmanCodedPos hcp;
         while (idx < teacherNodes) {
-            {
+            int hcp_index_tmp = std::atomic_fetch_add(&hcp_index, 1);
+            if (hcp_index_tmp >= teacherNodes) break;
+
+            HuffmanCodedPos& hcp = pHcp[hcp_index_tmp];
+
+            /*{
                 std::unique_lock<Mutex> lock(imutex);
                 // シークしない
                 //ifs.seekg(inputFileDist(mt) * sizeof(HuffmanCodedPos), std::ios_base::beg);
                 ifs.read(reinterpret_cast<char*>(&hcp), sizeof(hcp));
                 if (ifs.eof()) break;
-            }
+            }*/
             setPosition(pos, hcp);
             // ランダムムーブなし
             //randomMove(pos, mt); // 教師局面を増やす為、取得した元局面からランダムに動かしておく。
