@@ -687,6 +687,126 @@ void make_teacher2(std::istringstream& ssCmd) {
     std::cout << "Made " << teacherNodes << " teacher nodes in " << t.elapsed()/1000 << " seconds." << std::endl;
 }
 
+// 定跡にある手を探索(再帰処理)
+void detect_position_from_book(Position& pos, std::set<Key>& bookKeys, std::ofstream& ofs, int& count) {
+    // 合法手一覧
+    for (MoveList<Legal> ml(pos); !ml.end(); ++ml) {
+        StateInfo state;
+        pos.doMove(ml.move(), state);
+
+        // 局面が定跡にあるか確認
+        auto itr = bookKeys.find(Book::bookKey(pos));
+        if (itr != bookKeys.end()) {
+            // hcpを出力
+            {
+                HuffmanCodedPos hcp = pos.toHuffmanCodedPos();
+                ofs.write(reinterpret_cast<char*>(&hcp), sizeof(HuffmanCodedPos));
+                count++;
+            }
+            // 同じ局面を探索しないようにキーを削除
+            bookKeys.erase(itr);
+
+            // 次の手を探索
+            detect_position_from_book(pos, bookKeys, ofs, count);
+        }
+
+        pos.undoMove(ml.move());
+    }
+}
+
+// 定跡からhcpに変換
+void convert_book_to_hcp(std::istringstream& ssCmd) {
+    std::string bookFileName;
+    std::string outputFileName;
+    ssCmd >> bookFileName;
+    ssCmd >> outputFileName;
+
+    Searcher s;
+    s.init();
+    const std::string options[] = {"name Threads value 1",
+                                   "name MultiPV value 1",
+                                   "name USI_Hash value 256",
+                                   "name OwnBook value false",
+                                   "name Max_Random_Score_Diff value 0"};
+    for (auto& str : options) {
+        std::istringstream is(str);
+        s.setOption(is);
+    }
+    Position pos(DefaultStartPositionSFEN, s.threads.main(), s.thisptr);
+
+    // 定跡読み込み
+    std::set<Key> bookKeys;
+    std::ifstream ifs(bookFileName.c_str(), std::ifstream::in | std::ifstream::binary);
+    if (!ifs) {
+        std::cerr << "Error: cannot open " << bookFileName << std::endl;
+        exit(EXIT_FAILURE);
+    }
+    BookEntry entry;
+    while (ifs.read(reinterpret_cast<char*>(&entry), sizeof(entry))) {
+        bookKeys.insert(entry.key);
+    }
+    std::cout << bookKeys.size() << std::endl;
+
+    // 出力ファイルオープン
+    std::ofstream ofs(outputFileName.c_str(), std::ios::binary);
+    if (!ofs) {
+        std::cerr << "Error: cannot open " << outputFileName << std::endl;
+        exit(EXIT_FAILURE);
+    }
+
+    // 探索
+    int count = 0;
+    detect_position_from_book(pos, bookKeys, ofs, count);
+    std::cout << count << std::endl;
+}
+
+// やねうら王形式の定跡からhcpに変換
+void convert_yanebook_to_hcp(std::istringstream& ssCmd) {
+    std::string bookFileName;
+    std::string outputFileName;
+    ssCmd >> bookFileName;
+    ssCmd >> outputFileName;
+
+    Searcher s;
+    s.init();
+    const std::string options[] = {"name Threads value 1",
+                                   "name MultiPV value 1",
+                                   "name USI_Hash value 256",
+                                   "name OwnBook value false",
+                                   "name Max_Random_Score_Diff value 0"};
+    for (auto& str : options) {
+        std::istringstream is(str);
+        s.setOption(is);
+    }
+
+    // 出力ファイルオープン
+    std::ofstream ofs(outputFileName.c_str(), std::ios::binary);
+    if (!ofs) {
+        std::cerr << "Error: cannot open " << outputFileName << std::endl;
+        exit(EXIT_FAILURE);
+    }
+
+    // 定跡読み込み
+    std::ifstream ifs(bookFileName.c_str(), std::ifstream::in);
+    if (!ifs) {
+        std::cerr << "Error: cannot open " << bookFileName << std::endl;
+        exit(EXIT_FAILURE);
+    }
+
+    Position pos;
+    std::string sfen;
+    int count = 0;
+    while (ifs && std::getline(ifs, sfen)) {
+        if (sfen.substr(0, 4) == "sfen") {
+            pos.set(sfen.substr(5), s.threads.main());
+            HuffmanCodedPos hcp = pos.toHuffmanCodedPos();
+            ofs.write(reinterpret_cast<char*>(&hcp), sizeof(HuffmanCodedPos));
+            count++;
+        }
+    }
+    std::cout << count << std::endl;
+}
+
 namespace {
     // Learner とほぼ同じもの。todo: Learner と共通化する。
 
@@ -1299,6 +1419,12 @@ void Searcher::doUSICommandLoop(int argc, char* argv[]) {
                 evalTableIsRead = true;
             }
             make_teacher2(ssCmd);
+        }
+        else if (token == "convert_book_to_hcp") {
+            convert_book_to_hcp(ssCmd);
+        }
+        else if (token == "convert_yanebook_to_hcp") {
+            convert_yanebook_to_hcp(ssCmd);
         }
         else if (token == "use_teacher") {
             if (!evalTableIsRead) {
