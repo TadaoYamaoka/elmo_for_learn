@@ -505,7 +505,7 @@ void make_teacher(std::istringstream& ssCmd) {
     std::cout << "Made " << teacherNodes << " teacher nodes in " << t.elapsed()/1000 << " seconds." << std::endl;
 }
 
-// 開始局面のみ出力
+// 全開始局面を1回出力
 void make_teacher2(std::istringstream& ssCmd) {
     std::string recordFileName;
     std::string outputFileName;
@@ -600,15 +600,23 @@ void make_teacher2(std::istringstream& ssCmd) {
                 }
                 pos.searcher()->alpha = -ScoreMaxEvaluate;
                 pos.searcher()->beta  =  ScoreMaxEvaluate;
-                if (ply == pos.gamePly())
-                    go(pos, static_cast<Depth>(8));
-                else
-                    go(pos, static_cast<Depth>(6));
+                go(pos, static_cast<Depth>(8));
                 const Score score = pos.searcher()->threads.main()->rootMoves[0].score;
                 const Move bestMove = pos.searcher()->threads.main()->rootMoves[0].pv[0];
+                const int ScoreThresh = 30000; // 自己対局を決着がついたとして止める閾値
+                if (ScoreThresh < abs(score)) { // 差が付いたので投了した事にする。
+                    if (pos.turn() == Black)
+                        gameResult = (score < ScoreZero ? WhiteWin : BlackWin);
+                    else
+                        gameResult = (score < ScoreZero ? BlackWin : WhiteWin);
+                    break;
+                }
+                else if (!bestMove) { // 勝ち宣言
+                    gameResult = (pos.turn() == Black ? BlackWin : WhiteWin);
+                    break;
+                }
 
-                // 開始局面のみ出力
-                if (ply == pos.gamePly() && bestMove) {
+                {
                     hcpevec.emplace_back(HuffmanCodedPosAndEval());
                     HuffmanCodedPosAndEval& hcpe = hcpevec.back();
                     hcpe.hcp = pos.toHuffmanCodedPos();
@@ -630,24 +638,11 @@ void make_teacher2(std::istringstream& ssCmd) {
                         pos.undoMove(pv[--i]);
                 }
 
-                const int ScoreThresh = 3000; // 自己対局を決着がついたとして止める閾値
-                if (ScoreThresh < abs(score)) { // 差が付いたので投了した事にする。
-                    if (pos.turn() == Black)
-                        gameResult = (score < ScoreZero ? WhiteWin : BlackWin);
-                    else
-                        gameResult = (score < ScoreZero ? BlackWin : WhiteWin);
-                    break;
-                }
-                else if (!bestMove) { // 勝ち宣言
-                    gameResult = (pos.turn() == Black ? BlackWin : WhiteWin);
-                    break;
-                }
-
                 states->push_back(StateInfo());
                 pos.doMove(bestMove, states->back());
             }
-            if (gameResult != Draw && hcpevec.size() > 0) {
-                idx++;
+            if (gameResult != Draw) {
+                idx += cnt;
                 // 勝敗を1局全てに付ける。
                 for (auto& elem : hcpevec)
                     elem.gameResult = gameResult;
