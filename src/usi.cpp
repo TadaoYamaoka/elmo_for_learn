@@ -429,7 +429,7 @@ void make_teacher(std::istringstream& ssCmd) {
                 go(pos, static_cast<Depth>(8));
                 const Score score = pos.searcher()->threads.main()->rootMoves[0].score;
                 const Move bestMove = pos.searcher()->threads.main()->rootMoves[0].pv[0];
-                const int ScoreThresh = 3000; // 自己対局を決着がついたとして止める閾値
+                const int ScoreThresh = 30000; // 自己対局を決着がついたとして止める閾値
                 if (ScoreThresh < abs(score)) { // 差が付いたので投了した事にする。
                     if (pos.turn() == Black)
                         gameResult = (score < ScoreZero ? WhiteWin : BlackWin);
@@ -682,8 +682,10 @@ void make_teacher2(std::istringstream& ssCmd) {
     std::cout << "Made " << teacherNodes << " teacher nodes in " << t.elapsed()/1000 << " seconds." << std::endl;
 }
 
+int max_depth = 0;
+
 // 定跡にある手を探索(再帰処理)
-void detect_position_from_book(Position& pos, std::set<Key>& bookKeys, std::ofstream& ofs, int& count) {
+void detect_position_from_book(Position& pos, std::set<Key>& bookKeys, std::ofstream& ofs, int& count, int depth) {
     // 合法手一覧
     for (MoveList<Legal> ml(pos); !ml.end(); ++ml) {
         StateInfo state;
@@ -697,12 +699,14 @@ void detect_position_from_book(Position& pos, std::set<Key>& bookKeys, std::ofst
                 HuffmanCodedPos hcp = pos.toHuffmanCodedPos();
                 ofs.write(reinterpret_cast<char*>(&hcp), sizeof(HuffmanCodedPos));
                 count++;
+
+                if (depth > max_depth) max_depth = depth;
             }
             // 同じ局面を探索しないようにキーを削除
             bookKeys.erase(itr);
 
             // 次の手を探索
-            detect_position_from_book(pos, bookKeys, ofs, count);
+            detect_position_from_book(pos, bookKeys, ofs, count, depth + 1);
         }
 
         pos.undoMove(ml.move());
@@ -751,8 +755,9 @@ void convert_book_to_hcp(std::istringstream& ssCmd) {
 
     // 探索
     int count = 0;
-    detect_position_from_book(pos, bookKeys, ofs, count);
+    detect_position_from_book(pos, bookKeys, ofs, count, 0);
     std::cout << count << std::endl;
+    std::cout << max_depth << std::endl;
 }
 
 // やねうら王形式の定跡からhcpに変換
