@@ -683,7 +683,7 @@ void make_teacher2(std::istringstream& ssCmd) {
 }
 
 int max_depth = 0;
-
+int limit_depth = INT_MAX;
 // 定跡にある手を探索(再帰処理)
 void detect_position_from_book(Position& pos, std::set<Key>& bookKeys, std::ofstream& ofs, int& count, int depth) {
     // 合法手一覧
@@ -706,7 +706,8 @@ void detect_position_from_book(Position& pos, std::set<Key>& bookKeys, std::ofst
             bookKeys.erase(itr);
 
             // 次の手を探索
-            detect_position_from_book(pos, bookKeys, ofs, count, depth + 1);
+            if (depth + 1 < limit_depth)
+                detect_position_from_book(pos, bookKeys, ofs, count, depth + 1);
         }
 
         pos.undoMove(ml.move());
@@ -717,8 +718,12 @@ void detect_position_from_book(Position& pos, std::set<Key>& bookKeys, std::ofst
 void convert_book_to_hcp(std::istringstream& ssCmd) {
     std::string bookFileName;
     std::string outputFileName;
+    int limit_count = 0;
+    
     ssCmd >> bookFileName;
     ssCmd >> outputFileName;
+    ssCmd >> limit_depth;
+    ssCmd >> limit_count;
 
     Searcher s;
     s.init();
@@ -742,7 +747,8 @@ void convert_book_to_hcp(std::istringstream& ssCmd) {
     }
     BookEntry entry;
     while (ifs.read(reinterpret_cast<char*>(&entry), sizeof(entry))) {
-        bookKeys.insert(entry.key);
+        if (entry.count >= limit_count)
+            bookKeys.insert(entry.key);
     }
     std::cout << bookKeys.size() << std::endl;
 
